@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ポケモンゲットだぜ！</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  body {
+    overflow: hidden;
+    touch-action: none;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    min-height: 100dvh;
+    background: linear-gradient(180deg, #87ceeb 0%, #98e698 50%, #4a8c3f 100%);
+    background-attachment: fixed;
+  }
+
+  #game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100dvh;
+    padding: 10px;
+  }
+
+  /* --- HUD --- */
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 400px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, rgba(220,50,50,0.9), rgba(180,30,30,0.9));
+    border: 3px solid #ffcb05;
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    font-weight: bold;
+    font-size: 16px;
+  }
+
+  .hud-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .hud-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.8);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .hud-value {
+    font-size: 22px;
+    color: #fff;
+  }
+
+  #hud-score .hud-value { color: #ffcb05; }
+  #hud-level .hud-value { color: #fff; }
+  #hud-time .hud-value { color: #7df3ff; }
+
+  .hud-value.pulse {
+    animation: hudPulse 0.3s ease;
+  }
+
+  @keyframes hudPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+
+  /* --- Timer bar --- */
+  #timer-bar-container {
+    width: 100%;
+    max-width: 400px;
+    height: 8px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,203,5,0.5);
+  }
+
+  #timer-bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #ffcb05, #ff9800, #f44336);
+    border-radius: 4px;
+    transition: width 0.1s linear;
+  }
+
+  /* --- Game board --- */
+  #board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+    max-width: 400px;
+    aspect-ratio: 1;
+  }
+
+  .hole {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 20px;
+    overflow: hidden;
+    background: radial-gradient(ellipse at center bottom, #2d5a1e 0%, #3a7a28 40%, #5a9a3e 70%, transparent 70%);
+    aspect-ratio: 1;
+  }
+
+  .hole-front {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 35%;
+    background: radial-gradient(ellipse at center, #3a7a28, #2d5a1e);
+    border-radius: 50%;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* Grass blade decorations */
+  .hole::before,
+  .hole::after {
+    content: '🌿';
+    position: absolute;
+    bottom: 8%;
+    font-size: min(6vw, 24px);
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0.7;
+  }
+  .hole::before { left: 5%; transform: rotate(-20deg); }
+  .hole::after { right: 5%; transform: rotate(20deg) scaleX(-1); }
+
+  .mole {
+    position: absolute;
+    bottom: 5%;
+    font-size: min(15vw, 60px);
+    z-index: 1;
+    transform: translateY(100%);
+    transition: transform 0.15s ease-out;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    pointer-events: none;
+  }
+
+  .mole.show {
+    transform: translateY(0%);
+  }
+
+  .mole.whacked {
+    animation: catchAnim 0.5s ease-out forwards;
+  }
+
+  @keyframes catchAnim {
+    0% { transform: translateY(0%) scale(1) rotate(0deg); }
+    20% { transform: translateY(-5%) scale(1.2) rotate(0deg); }
+    50% { transform: translateY(-10%) scale(0.3) rotate(360deg); opacity: 0.6; }
+    100% { transform: translateY(100%) scale(0) rotate(720deg); opacity: 0; }
+  }
+
+  /* --- Pokeball catch effect --- */
+  .pokeball-effect {
+    position: absolute;
+    z-index: 8;
+    font-size: min(12vw, 50px);
+    pointer-events: none;
+    left: 50%;
+    top: 30%;
+    transform: translateX(-50%);
+    animation: pokeballDrop 0.5s ease-out forwards;
+  }
+
+  @keyframes pokeballDrop {
+    0% { opacity: 1; transform: translateX(-50%) scale(1.5) rotate(0deg); }
+    30% { opacity: 1; transform: translateX(-50%) scale(1) rotate(180deg); }
+    60% { opacity: 0.8; transform: translateX(-50%) scale(0.8) rotate(360deg); }
+    100% { opacity: 0; transform: translateX(-50%) scale(0) rotate(540deg); }
+  }
+
+  /* --- Score popup --- */
+  .score-popup {
+    position: absolute;
+    z-index: 10;
+    font-size: 20px;
+    font-weight: bold;
+    color: #ffcb05;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 10px rgba(255,203,5,0.5);
+    pointer-events: none;
+    animation: scoreFloat 0.8s ease-out forwards;
+  }
+
+  .score-popup.bonus {
+    font-size: 26px;
+    color: #ff6fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 15px rgba(255,111,255,0.7);
+  }
+
+  @keyframes scoreFloat {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+  }
+
+  /* --- Particles --- */
+  .particle {
+    position: absolute;
+    z-index: 5;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: particleBurst 0.6s ease-out forwards;
+  }
+
+  @keyframes particleBurst {
+    0% { opacity: 1; transform: translate(0,0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+  }
+
+  /* --- Sparkle for rare pokemon --- */
+  .sparkle {
+    position: absolute;
+    z-index: 6;
+    font-size: 16px;
+    pointer-events: none;
+    animation: sparkleAnim 0.8s ease-out forwards;
+  }
+
+  @keyframes sparkleAnim {
+    0% { opacity: 1; transform: translate(0,0) scale(0.5) rotate(0deg); }
+    50% { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(1.2) rotate(180deg); }
+    100% { opacity: 0; transform: translate(var(--dx2), var(--dy2)) scale(0) rotate(360deg); }
+  }
+
+  /* --- Level up overlay --- */
+  #level-up-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  #level-up-overlay.show {
+    display: flex;
+    animation: levelUpFade 1.5s ease-out forwards;
+  }
+
+  #level-up-text {
+    font-size: 40px;
+    font-weight: bold;
+    color: #ffcb05;
+    text-shadow: 0 0 20px rgba(255,203,5,0.8), 0 0 40px rgba(255,203,5,0.5), 2px 2px 0 #3b5ca8;
+    animation: levelUpBounce 1.5s ease-out;
+  }
+
+  @keyframes levelUpFade {
+    0% { background: rgba(59,92,168,0.4); }
+    100% { background: rgba(59,92,168,0); }
+  }
+
+  @keyframes levelUpBounce {
+    0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+    40% { transform: scale(1.3) rotate(5deg); opacity: 1; }
+    70% { transform: scale(0.95) rotate(-2deg); }
+    100% { transform: scale(0) rotate(0deg); opacity: 0; }
+  }
+
+  /* --- Screens (start / game over) --- */
+  .screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 20px;
+  }
+
+  .screen.active {
+    display: flex;
+  }
+
+  .screen h1 {
+    font-size: 34px;
+    color: #ffcb05;
+    text-shadow: 3px 3px 0 #3b5ca8, -1px -1px 0 #3b5ca8, 1px -1px 0 #3b5ca8, -1px 1px 0 #3b5ca8;
+    letter-spacing: 2px;
+  }
+
+  .screen p {
+    font-size: 18px;
+    color: #fff;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    line-height: 1.5;
+  }
+
+  .screen .emoji-row {
+    font-size: 48px;
+    letter-spacing: 8px;
+  }
+
+  .btn {
+    padding: 16px 48px;
+    font-size: 22px;
+    font-weight: bold;
+    color: #fff;
+    border: 3px solid #ffcb05;
+    border-radius: 50px;
+    cursor: pointer;
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    box-shadow: 0 6px 20px rgba(220,53,69,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+    transition: transform 0.15s, box-shadow 0.15s;
+    touch-action: manipulation;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 3px 10px rgba(220,53,69,0.4);
+  }
+
+  #game-over-screen .final-score {
+    font-size: 56px;
+    font-weight: bold;
+    color: #ffcb05;
+    text-shadow: 3px 3px 0 #3b5ca8;
+  }
+
+  #game-over-screen .final-level {
+    font-size: 20px;
+    color: #fff;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  }
+
+  #high-score-display {
+    font-size: 16px;
+    color: #ffcb05;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  }
+
+  .new-record {
+    animation: recordPulse 0.5s ease infinite alternate;
+  }
+
+  @keyframes recordPulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.1); }
+  }
+
+  /* --- Decorative floating shapes --- */
+  .deco {
+    position: fixed;
+    pointer-events: none;
+    opacity: 0.2;
+    z-index: 0;
+    animation: decoFloat 6s ease-in-out infinite;
+  }
+
+  @keyframes decoFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(10deg); }
+  }
+
+  /* --- Caught counter badge --- */
+  .caught-badge {
+    font-size: 14px;
+    color: #fff;
+    background: rgba(0,0,0,0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-top: -8px;
+  }
+
+  /* --- Pokedex-style results --- */
+  .result-pokemon-list {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 280px;
+    font-size: 28px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Decorative background shapes -->
+<div class="deco" style="top:5%;left:5%;font-size:40px;animation-delay:0s">🌳</div>
+<div class="deco" style="top:15%;right:8%;font-size:35px;animation-delay:1s">☁️</div>
+<div class="deco" style="bottom:10%;left:10%;font-size:45px;animation-delay:2s">🌳</div>
+<div class="deco" style="bottom:20%;right:5%;font-size:38px;animation-delay:3s">☁️</div>
+<div class="deco" style="top:50%;left:2%;font-size:30px;animation-delay:4s">🍃</div>
+<div class="deco" style="top:35%;right:3%;font-size:28px;animation-delay:5s">🍃</div>
+
+<div id="game-container">
+
+  <!-- Start Screen -->
+  <div id="start-screen" class="screen active">
+    <div class="emoji-row">⚡🔥💧🌿</div>
+    <h1>ポケモンゲットだぜ！</h1>
+    <p>草むらから飛び出すポケモンを<br>タップしてゲットしよう！</p>
+    <button class="btn" id="start-btn">⚡ 冒険に出る！</button>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="game-screen" class="screen">
+    <div id="hud">
+      <div class="hud-item" id="hud-score">
+        <span class="hud-label">スコア</span>
+        <span class="hud-value" id="score-display">0</span>
+      </div>
+      <div class="hud-item" id="hud-caught">
+        <span class="hud-label">ゲット</span>
+        <span class="hud-value" id="caught-display">0</span>
+      </div>
+      <div class="hud-item" id="hud-level">
+        <span class="hud-label">トレーナーLv</span>
+        <span class="hud-value" id="level-display">1</span>
+      </div>
+      <div class="hud-item" id="hud-time">
+        <span class="hud-label">のこり</span>
+        <span class="hud-value" id="time-display">30</span>
+      </div>
+    </div>
+    <div id="timer-bar-container">
+      <div id="timer-bar"></div>
+    </div>
+    <div id="board"></div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div id="game-over-screen" class="screen">
+    <div class="emoji-row">🏆⚡🏆</div>
+    <h1>冒険終了！</h1>
+    <div class="final-score" id="final-score">0</div>
+    <div class="final-level" id="final-level">トレーナーLv 1</div>
+    <div id="caught-result"></div>
+    <div id="caught-pokemon-list" class="result-pokemon-list"></div>
+    <div id="high-score-display"></div>
+    <button class="btn" id="restart-btn">🔄 もう一度冒険！</button>
+  </div>
+</div>
+
+<!-- Level up overlay -->
+<div id="level-up-overlay">
+  <div id="level-up-text"></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // --- Constants ---
+  const GAME_DURATION = 30;
+  const HOLE_COUNT = 9;
+
+  // Pokemon represented by emoji with type info
+  const POKEMON = [
+    { emoji: '⚡', name: 'ピカチュウ', type: 'electric' },
+    { emoji: '🔥', name: 'ヒトカゲ', type: 'fire' },
+    { emoji: '💧', name: 'ゼニガメ', type: 'water' },
+    { emoji: '🌿', name: 'フシギダネ', type: 'grass' },
+    { emoji: '🦇', name: 'ズバット', type: 'poison' },
+    { emoji: '🐦', name: 'ポッポ', type: 'normal' },
+    { emoji: '🐛', name: 'キャタピー', type: 'bug' },
+    { emoji: '🐭', name: 'コラッタ', type: 'normal' },
+  ];
+
+  // Rare/legendary pokemon
+  const RARE_POKEMON = [
+    { emoji: '🐉', name: 'カイリュー', type: 'dragon' },
+    { emoji: '👻', name: 'ゲンガー', type: 'ghost' },
+    { emoji: '🦊', name: 'イーブイ', type: 'normal' },
+  ];
+
+  const LEGENDARY_POKEMON = { emoji: '✨', name: 'ミュウ', type: 'psychic' };
+
+  const RARE_CHANCE = 0.15;
+  const LEGENDARY_CHANCE = 0.05;
+  const LEGENDARY_POINTS = 100;
+  const RARE_POINTS = 50;
+
+  // Particle colors: pokeball red/white theme
+  const PARTICLE_COLORS = ['#dc3545','#fff','#ffcb05','#3b5ca8','#ff6b6b','#ffd93d','#fff'];
+
+  const LEVELS = [
+    { threshold: 0,   interval: 1200, maxMoles: 1, points: 10, showTime: 1100, title: 'ビギナー' },
+    { threshold: 50,  interval: 1000, maxMoles: 2, points: 15, showTime: 950,  title: 'トレーナー' },
+    { threshold: 150, interval: 800,  maxMoles: 2, points: 20, showTime: 750,  title: 'エリート' },
+    { threshold: 300, interval: 600,  maxMoles: 3, points: 25, showTime: 580,  title: 'チャンピオン' },
+    { threshold: 500, interval: 500,  maxMoles: 3, points: 30, showTime: 480,  title: 'マスター' },
+  ];
+
+  // --- State ---
+  let score = 0;
+  let level = 0;
+  let timeLeft = GAME_DURATION;
+  let gameRunning = false;
+  let spawnTimer = null;
+  let countdownTimer = null;
+  let highScore = parseInt(localStorage.getItem('pokemon-get-highscore')) || 0;
+  let caughtCount = 0;
+  let caughtList = []; // Track caught pokemon for results
+
+  // Per-hole state
+  let holes = [];
+
+  // --- DOM refs ---
+  const startScreen = document.getElementById('start-screen');
+  const gameScreen = document.getElementById('game-screen');
+  const gameOverScreen = document.getElementById('game-over-screen');
+  const board = document.getElementById('board');
+  const scoreDisplay = document.getElementById('score-display');
+  const caughtDisplay = document.getElementById('caught-display');
+  const levelDisplay = document.getElementById('level-display');
+  const timeDisplay = document.getElementById('time-display');
+  const timerBar = document.getElementById('timer-bar');
+  const finalScore = document.getElementById('final-score');
+  const finalLevel = document.getElementById('final-level');
+  const highScoreDisplay = document.getElementById('high-score-display');
+  const caughtResult = document.getElementById('caught-result');
+  const caughtPokemonList = document.getElementById('caught-pokemon-list');
+  const levelUpOverlay = document.getElementById('level-up-overlay');
+  const levelUpText = document.getElementById('level-up-text');
+  const startBtn = document.getElementById('start-btn');
+  const restartBtn = document.getElementById('restart-btn');
+
+  // --- Init board ---
+  function buildBoard() {
+    board.innerHTML = '';
+    holes = [];
+    for (let i = 0; i < HOLE_COUNT; i++) {
+      const holeEl = document.createElement('div');
+      holeEl.className = 'hole';
+      holeEl.dataset.index = i;
+
+      const moleEl = document.createElement('div');
+      moleEl.className = 'mole';
+      holeEl.appendChild(moleEl);
+
+      const frontEl = document.createElement('div');
+      frontEl.className = 'hole-front';
+      holeEl.appendChild(frontEl);
+
+      board.appendChild(holeEl);
+
+      holes.push({
+        el: holeEl,
+        moleEl: moleEl,
+        active: false,
+        whacked: false,
+        pokemon: null,
+        rarity: 'normal',
+        hideTimeout: null,
+      });
+
+      // Tap handler
+      holeEl.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        catchPokemon(i, e);
+      });
+    }
+  }
+
+  // --- Screen management ---
+  function showScreen(screen) {
+    startScreen.classList.remove('active');
+    gameScreen.classList.remove('active');
+    gameOverScreen.classList.remove('active');
+    screen.classList.add('active');
+  }
+
+  // --- Game start ---
+  function startGame() {
+    score = 0;
+    level = 0;
+    timeLeft = GAME_DURATION;
+    gameRunning = true;
+    caughtCount = 0;
+    caughtList = [];
+
+    updateHUD();
+    showScreen(gameScreen);
+    buildBoard();
+
+    scheduleSpawn();
+
+    countdownTimer = setInterval(function() {
+      timeLeft--;
+      updateTimerDisplay();
+
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }, 1000);
+  }
+
+  // --- Game end ---
+  function endGame() {
+    gameRunning = false;
+    clearInterval(countdownTimer);
+    clearTimeout(spawnTimer);
+
+    // Hide all active pokemon
+    for (const hole of holes) {
+      clearTimeout(hole.hideTimeout);
+      hole.active = false;
+      hole.moleEl.classList.remove('show');
+    }
+
+    // Update high score
+    let isNewRecord = false;
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('pokemon-get-highscore', highScore);
+      isNewRecord = true;
+    }
+
+    // Show game over screen
+    finalScore.textContent = score;
+    finalLevel.textContent = 'トレーナーLv ' + (level + 1) + ' - ' + LEVELS[level].title;
+
+    // Show caught count
+    caughtResult.className = 'caught-badge';
+    caughtResult.textContent = caughtCount + '匹ゲット！';
+
+    // Show caught pokemon list
+    caughtPokemonList.innerHTML = '';
+    for (const p of caughtList) {
+      const span = document.createElement('span');
+      span.textContent = p.emoji;
+      span.title = p.name;
+      caughtPokemonList.appendChild(span);
+    }
+
+    if (isNewRecord && score > 0) {
+      highScoreDisplay.textContent = '🎉 ハイスコア更新！ 🎉';
+      highScoreDisplay.className = 'new-record';
+    } else {
+      highScoreDisplay.textContent = 'ハイスコア: ' + highScore;
+      highScoreDisplay.className = '';
+    }
+
+    showScreen(gameOverScreen);
+  }
+
+  // --- Spawning ---
+  function scheduleSpawn() {
+    if (!gameRunning) return;
+    const cfg = LEVELS[level];
+    spawnTimer = setTimeout(function() {
+      spawnPokemon();
+      scheduleSpawn();
+    }, cfg.interval);
+  }
+
+  function spawnPokemon() {
+    if (!gameRunning) return;
+    const cfg = LEVELS[level];
+
+    const count = Math.floor(Math.random() * cfg.maxMoles) + 1;
+
+    // Get available holes
+    const available = [];
+    for (let i = 0; i < holes.length; i++) {
+      if (!holes[i].active) available.push(i);
+    }
+
+    // Shuffle
+    for (let i = available.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [available[i], available[j]] = [available[j], available[i]];
+    }
+
+    const toSpawn = available.slice(0, Math.min(count, available.length));
+
+    for (const idx of toSpawn) {
+      showPokemon(idx);
+    }
+  }
+
+  function showPokemon(idx) {
+    const hole = holes[idx];
+    const cfg = LEVELS[level];
+
+    // Determine rarity and pick pokemon
+    const roll = Math.random();
+    if (roll < LEGENDARY_CHANCE) {
+      hole.pokemon = LEGENDARY_POKEMON;
+      hole.rarity = 'legendary';
+    } else if (roll < LEGENDARY_CHANCE + RARE_CHANCE) {
+      hole.pokemon = RARE_POKEMON[Math.floor(Math.random() * RARE_POKEMON.length)];
+      hole.rarity = 'rare';
+    } else {
+      hole.pokemon = POKEMON[Math.floor(Math.random() * POKEMON.length)];
+      hole.rarity = 'normal';
+    }
+
+    hole.active = true;
+    hole.whacked = false;
+
+    hole.moleEl.textContent = hole.pokemon.emoji;
+    hole.moleEl.classList.remove('whacked');
+    hole.moleEl.classList.add('show');
+
+    // Auto-hide after showTime
+    const showTime = hole.rarity === 'legendary' ? cfg.showTime * 0.6 : cfg.showTime;
+    hole.hideTimeout = setTimeout(function() {
+      if (hole.active && !hole.whacked) {
+        hidePokemon(idx);
+      }
+    }, showTime);
+  }
+
+  function hidePokemon(idx) {
+    const hole = holes[idx];
+    hole.active = false;
+    hole.moleEl.classList.remove('show');
+  }
+
+  // --- Catch ---
+  function catchPokemon(idx, event) {
+    if (!gameRunning) return;
+    const hole = holes[idx];
+    if (!hole.active || hole.whacked) return;
+
+    hole.whacked = true;
+    clearTimeout(hole.hideTimeout);
+
+    const cfg = LEVELS[level];
+    let pts;
+    if (hole.rarity === 'legendary') {
+      pts = LEGENDARY_POINTS;
+    } else if (hole.rarity === 'rare') {
+      pts = RARE_POINTS;
+    } else {
+      pts = cfg.points;
+    }
+
+    // Catch animation
+    hole.moleEl.classList.add('whacked');
+    setTimeout(function() {
+      hole.active = false;
+      hole.moleEl.classList.remove('show', 'whacked');
+    }, 500);
+
+    // Pokeball effect
+    showPokeballEffect(hole.el);
+
+    // Score popup
+    const label = hole.rarity === 'legendary' ? 'GET! +' + pts :
+                  hole.rarity === 'rare' ? 'RARE! +' + pts : '+' + pts;
+    showScorePopup(hole.el, label, hole.rarity !== 'normal');
+
+    // Particles
+    spawnParticles(hole.el);
+
+    // Sparkles for rare/legendary
+    if (hole.rarity !== 'normal') {
+      spawnSparkles(hole.el);
+    }
+
+    // Track caught pokemon
+    caughtCount++;
+    caughtList.push(hole.pokemon);
+    caughtDisplay.textContent = caughtCount;
+
+    // Update score
+    score += pts;
+    updateScore();
+    checkLevelUp();
+  }
+
+  // --- Pokeball effect ---
+  function showPokeballEffect(parentEl) {
+    const ball = document.createElement('div');
+    ball.className = 'pokeball-effect';
+    ball.textContent = '🔴';
+    parentEl.appendChild(ball);
+    setTimeout(function() { ball.remove(); }, 500);
+  }
+
+  // --- Score popup ---
+  function showScorePopup(parentEl, text, isSpecial) {
+    const popup = document.createElement('div');
+    popup.className = 'score-popup' + (isSpecial ? ' bonus' : '');
+    popup.textContent = text;
+    popup.style.left = '50%';
+    popup.style.top = '15%';
+    popup.style.transform = 'translateX(-50%)';
+    parentEl.appendChild(popup);
+    setTimeout(function() { popup.remove(); }, 800);
+  }
+
+  // --- Particles ---
+  function spawnParticles(parentEl) {
+    const count = 8;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const angle = (Math.PI * 2 / count) * i;
+      const dist = 30 + Math.random() * 30;
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist;
+      p.style.setProperty('--dx', dx + 'px');
+      p.style.setProperty('--dy', dy + 'px');
+      p.style.background = PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)];
+      p.style.left = '50%';
+      p.style.top = '40%';
+      parentEl.appendChild(p);
+      setTimeout(function() { p.remove(); }, 600);
+    }
+  }
+
+  // --- Sparkles for rare catches ---
+  function spawnSparkles(parentEl) {
+    const sparkles = ['✨', '⭐', '💫'];
+    for (let i = 0; i < 5; i++) {
+      const s = document.createElement('div');
+      s.className = 'sparkle';
+      s.textContent = sparkles[Math.floor(Math.random() * sparkles.length)];
+      const angle = (Math.PI * 2 / 5) * i;
+      const dist1 = 20 + Math.random() * 20;
+      const dist2 = 40 + Math.random() * 30;
+      s.style.setProperty('--dx', Math.cos(angle) * dist1 + 'px');
+      s.style.setProperty('--dy', Math.sin(angle) * dist1 + 'px');
+      s.style.setProperty('--dx2', Math.cos(angle) * dist2 + 'px');
+      s.style.setProperty('--dy2', Math.sin(angle) * dist2 + 'px');
+      s.style.left = '50%';
+      s.style.top = '30%';
+      parentEl.appendChild(s);
+      setTimeout(function() { s.remove(); }, 800);
+    }
+  }
+
+  // --- HUD updates ---
+  function updateHUD() {
+    scoreDisplay.textContent = score;
+    caughtDisplay.textContent = caughtCount;
+    levelDisplay.textContent = level + 1;
+    updateTimerDisplay();
+  }
+
+  function updateScore() {
+    scoreDisplay.textContent = score;
+    scoreDisplay.classList.remove('pulse');
+    void scoreDisplay.offsetWidth;
+    scoreDisplay.classList.add('pulse');
+  }
+
+  function updateTimerDisplay() {
+    timeDisplay.textContent = timeLeft;
+    timerBar.style.width = (timeLeft / GAME_DURATION * 100) + '%';
+
+    if (timeLeft <= 5) {
+      timeDisplay.style.color = '#f44336';
+      timeDisplay.classList.remove('pulse');
+      void timeDisplay.offsetWidth;
+      timeDisplay.classList.add('pulse');
+    } else {
+      timeDisplay.style.color = '#7df3ff';
+    }
+  }
+
+  // --- Level check ---
+  function checkLevelUp() {
+    let newLevel = 0;
+    for (let i = LEVELS.length - 1; i >= 0; i--) {
+      if (score >= LEVELS[i].threshold) {
+        newLevel = i;
+        break;
+      }
+    }
+
+    if (newLevel > level) {
+      level = newLevel;
+      levelDisplay.textContent = level + 1;
+      levelDisplay.classList.remove('pulse');
+      void levelDisplay.offsetWidth;
+      levelDisplay.classList.add('pulse');
+
+      showLevelUp();
+
+      clearTimeout(spawnTimer);
+      scheduleSpawn();
+    }
+  }
+
+  function showLevelUp() {
+    const cfg = LEVELS[level];
+    levelUpText.textContent = '⬆ トレーナーLv ' + (level + 1) + ' ' + cfg.title + '！';
+    levelUpOverlay.classList.remove('show');
+    void levelUpOverlay.offsetWidth;
+    levelUpOverlay.classList.add('show');
+    setTimeout(function() {
+      levelUpOverlay.classList.remove('show');
+    }, 1500);
+  }
+
+  // --- Event listeners ---
+  startBtn.addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    startGame();
+  });
+
+  restartBtn.addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    startGame();
+  });
+
+  // Prevent default touch behaviors
+  document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
+  document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+  // --- Initial setup ---
+  buildBoard();
+
+})();
+</script>
+</body>
+</html>
