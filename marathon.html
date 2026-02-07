@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>さいたまマラソン コース予習クイズラン</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  body {
+    overflow-x: hidden;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    min-height: 100dvh;
+    background: #f5f5f5;
+  }
+
+  /* --- Course progress bar (top) --- */
+  #course-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 48px;
+    background: linear-gradient(180deg, #e91e8c, #c2185b);
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: none;
+  }
+
+  #course-track {
+    position: absolute;
+    top: 28px;
+    left: 16px;
+    right: 16px;
+    height: 6px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 3px;
+  }
+
+  #course-fill {
+    height: 100%;
+    width: 0%;
+    background: #ffcb05;
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+
+  #runner-icon {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    font-size: 20px;
+    transition: left 0.8s ease;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+  }
+
+  #course-info {
+    position: absolute;
+    top: 4px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: space-between;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  #course-info .dist {
+    color: #ffcb05;
+  }
+
+  /* --- Stamina bar --- */
+  #stamina-container {
+    position: fixed;
+    top: 48px;
+    left: 0;
+    right: 0;
+    height: 28px;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+  }
+
+  #stamina-label {
+    color: #4caf50;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  #stamina-bar-bg {
+    flex: 1;
+    height: 10px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  #stamina-bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #f44336, #ff9800, #4caf50);
+    border-radius: 5px;
+    transition: width 0.5s ease;
+  }
+
+  #stamina-text {
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    min-width: 36px;
+    text-align: right;
+  }
+
+  #score-badge {
+    color: #ffcb05;
+    font-size: 11px;
+    font-weight: bold;
+    min-width: 50px;
+    text-align: right;
+  }
+
+  /* --- Main container --- */
+  #game-container {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .game-active #game-container {
+    padding-top: 86px;
+    justify-content: flex-start;
+  }
+
+  /* --- Screens --- */
+  .screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 500px;
+    padding: 20px;
+  }
+
+  .screen.active {
+    display: flex;
+  }
+
+  /* --- Start screen --- */
+  #start-screen {
+    background: linear-gradient(135deg, #e91e8c, #c2185b, #9c27b0);
+    border-radius: 24px;
+    color: #fff;
+    padding: 40px 24px;
+    box-shadow: 0 8px 30px rgba(233,30,140,0.4);
+  }
+
+  #start-screen h1 {
+    font-size: 28px;
+    line-height: 1.3;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+  }
+
+  #start-screen .subtitle {
+    font-size: 16px;
+    opacity: 0.9;
+    line-height: 1.6;
+  }
+
+  #start-screen .race-info {
+    background: rgba(255,255,255,0.15);
+    border-radius: 16px;
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.8;
+    text-align: left;
+    width: 100%;
+  }
+
+  #start-screen .race-info strong {
+    color: #ffcb05;
+  }
+
+  .start-emoji {
+    font-size: 56px;
+  }
+
+  /* --- Buttons --- */
+  .btn {
+    padding: 16px 40px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #c2185b;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    background: #fff;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    transition: transform 0.15s, box-shadow 0.15s;
+    touch-action: manipulation;
+  }
+
+  .btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  .btn-secondary {
+    background: linear-gradient(135deg, #e91e8c, #c2185b);
+    color: #fff;
+  }
+
+  /* --- Quiz card --- */
+  #quiz-card {
+    width: 100%;
+    max-width: 500px;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+    animation: cardIn 0.4s ease;
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(30px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .quiz-header {
+    background: linear-gradient(135deg, #e91e8c, #c2185b);
+    color: #fff;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .quiz-header .km-badge {
+    background: #ffcb05;
+    color: #c2185b;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  .quiz-header .category {
+    font-size: 14px;
+    opacity: 0.9;
+  }
+
+  .quiz-question {
+    padding: 20px;
+    font-size: 17px;
+    font-weight: bold;
+    color: #333;
+    line-height: 1.6;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .quiz-options {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .quiz-option {
+    padding: 14px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 15px;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fff;
+    text-align: left;
+    line-height: 1.4;
+  }
+
+  .quiz-option:active {
+    transform: scale(0.98);
+  }
+
+  .quiz-option.correct {
+    border-color: #4caf50;
+    background: #e8f5e9;
+    color: #2e7d32;
+    font-weight: bold;
+  }
+
+  .quiz-option.wrong {
+    border-color: #f44336;
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  .quiz-option.reveal {
+    border-color: #4caf50;
+    background: #e8f5e9;
+  }
+
+  .quiz-option.disabled {
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  /* --- Result feedback --- */
+  .quiz-result {
+    padding: 16px 20px;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .quiz-result.show {
+    display: flex;
+  }
+
+  .quiz-result.correct {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .quiz-result.wrong {
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  .quiz-result .emoji {
+    font-size: 32px;
+  }
+
+  /* --- Next button area --- */
+  .quiz-next {
+    padding: 12px 20px;
+    display: none;
+    justify-content: center;
+  }
+
+  .quiz-next.show {
+    display: flex;
+  }
+
+  .quiz-next button {
+    padding: 12px 32px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    background: linear-gradient(135deg, #e91e8c, #c2185b);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(233,30,140,0.3);
+    touch-action: manipulation;
+  }
+
+  /* --- Aid station info card --- */
+  #aid-card {
+    display: none;
+    width: 100%;
+    max-width: 500px;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+    margin-top: 12px;
+    animation: cardIn 0.4s ease;
+  }
+
+  #aid-card.show { display: block; }
+
+  .aid-header {
+    background: linear-gradient(135deg, #ff9800, #f57c00);
+    color: #fff;
+    padding: 14px 20px;
+    font-size: 16px;
+    font-weight: bold;
+  }
+
+  .aid-body {
+    padding: 16px 20px;
+  }
+
+  .aid-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 14px;
+    color: #555;
+  }
+
+  .aid-item:last-child { border-bottom: none; }
+
+  .aid-item .emoji { font-size: 24px; }
+
+  /* --- Landmark card --- */
+  .landmark-card {
+    width: 100%;
+    max-width: 500px;
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: cardIn 0.4s ease;
+  }
+
+  .landmark-card .emoji { font-size: 36px; }
+  .landmark-card .info { font-size: 14px; color: #1565c0; line-height: 1.5; }
+  .landmark-card .info strong { font-size: 16px; }
+
+  /* --- Finish screen --- */
+  #finish-screen {
+    background: #fff;
+    border-radius: 24px;
+    padding: 40px 24px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  }
+
+  #finish-screen h1 {
+    font-size: 32px;
+    color: #c2185b;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.05);
+  }
+
+  .finish-medal {
+    font-size: 80px;
+    animation: medalBounce 1s ease;
+  }
+
+  @keyframes medalBounce {
+    0% { transform: scale(0) rotate(-30deg); }
+    50% { transform: scale(1.2) rotate(10deg); }
+    70% { transform: scale(0.9) rotate(-5deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  .finish-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .finish-stat {
+    background: #f5f5f5;
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .finish-stat .label {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 4px;
+  }
+
+  .finish-stat .value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #c2185b;
+  }
+
+  .finish-message {
+    font-size: 15px;
+    color: #555;
+    line-height: 1.6;
+    padding: 12px;
+    background: linear-gradient(135deg, #fce4ec, #f3e5f5);
+    border-radius: 12px;
+    width: 100%;
+  }
+
+  /* --- Animations --- */
+  .stamina-flash {
+    animation: staminaFlash 0.5s ease;
+  }
+
+  @keyframes staminaFlash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* --- Game Over screen --- */
+  #gameover-screen {
+    background: #fff;
+    border-radius: 24px;
+    padding: 40px 24px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  }
+
+  #gameover-screen h1 {
+    font-size: 28px;
+    color: #f44336;
+  }
+
+  .retry-message {
+    font-size: 15px;
+    color: #555;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div id="course-bar">
+  <div id="course-info">
+    <span id="current-km" class="dist">0.0km</span>
+    <span>さいたまマラソン 42.195km</span>
+    <span id="question-count">Q.0/0</span>
+  </div>
+  <div id="course-track">
+    <div id="course-fill"></div>
+  </div>
+  <div id="runner-icon">🏃</div>
+</div>
+
+<div id="stamina-container">
+  <span id="stamina-label">💪 スタミナ</span>
+  <div id="stamina-bar-bg">
+    <div id="stamina-bar"></div>
+  </div>
+  <span id="stamina-text">100%</span>
+  <span id="score-badge">⭐ 0点</span>
+</div>
+
+<div id="game-container">
+
+  <!-- Start Screen -->
+  <div id="start-screen" class="screen active">
+    <div class="start-emoji">🏃‍♂️🏟️</div>
+    <h1>さいたまマラソン<br>コース予習クイズラン</h1>
+    <p class="subtitle">クイズに答えながら42.195kmを<br>バーチャルで走ろう！</p>
+    <div class="race-info">
+      <strong>📅 大会日:</strong> 2026年2月8日（日）<br>
+      <strong>⏰ スタート:</strong> 9:00<br>
+      <strong>📍 会場:</strong> さいたまスーパーアリーナ周辺<br>
+      <strong>🏁 距離:</strong> フルマラソン 42.195km<br>
+      <strong>⏱️ 制限時間:</strong> 6時間
+    </div>
+    <button class="btn" id="start-btn">🏃 スタート！</button>
+  </div>
+
+  <!-- Quiz Screen -->
+  <div id="quiz-screen" class="screen">
+    <div id="quiz-card">
+      <div class="quiz-header">
+        <span class="km-badge" id="quiz-km">0km</span>
+        <span class="category" id="quiz-category">コース情報</span>
+      </div>
+      <div class="quiz-question" id="quiz-question">問題文がここに表示されます</div>
+      <div class="quiz-options" id="quiz-options"></div>
+      <div class="quiz-result" id="quiz-result">
+        <span class="emoji" id="result-emoji"></span>
+        <span id="result-text"></span>
+      </div>
+      <div class="quiz-next" id="quiz-next">
+        <button id="next-btn">次へ進む →</button>
+      </div>
+    </div>
+    <div id="aid-card">
+      <div class="aid-header" id="aid-header">🍽️ エイドステーション情報</div>
+      <div class="aid-body" id="aid-body"></div>
+    </div>
+  </div>
+
+  <!-- Finish Screen -->
+  <div id="finish-screen" class="screen">
+    <div class="finish-medal" id="finish-medal">🥇</div>
+    <h1>🎉 完走おめでとう！</h1>
+    <div class="finish-stats">
+      <div class="finish-stat">
+        <div class="label">正答率</div>
+        <div class="value" id="finish-accuracy">0%</div>
+      </div>
+      <div class="finish-stat">
+        <div class="label">スコア</div>
+        <div class="value" id="finish-score">0</div>
+      </div>
+      <div class="finish-stat">
+        <div class="label">残りスタミナ</div>
+        <div class="value" id="finish-stamina">0%</div>
+      </div>
+      <div class="finish-stat">
+        <div class="label">正解数</div>
+        <div class="value" id="finish-correct">0/0</div>
+      </div>
+    </div>
+    <div class="finish-message" id="finish-message"></div>
+    <button class="btn btn-secondary" id="retry-btn">🔄 もう一度走る</button>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div id="gameover-screen" class="screen">
+    <div class="start-emoji">😵💫</div>
+    <h1>スタミナ切れ…！</h1>
+    <p class="retry-message" id="gameover-km">0km地点でリタイア</p>
+    <p class="retry-message">正解してスタミナを維持しよう！<br>コースの知識をつけて再挑戦！</p>
+    <div class="finish-stats">
+      <div class="finish-stat">
+        <div class="label">到達地点</div>
+        <div class="value" id="gameover-dist">0km</div>
+      </div>
+      <div class="finish-stat">
+        <div class="label">正解数</div>
+        <div class="value" id="gameover-correct">0/0</div>
+      </div>
+    </div>
+    <button class="btn btn-secondary" id="gameover-retry-btn">🔄 再チャレンジ</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // =====================================================
+  // QUIZ DATA - Saitama Marathon 2026
+  // =====================================================
+  const QUIZ_DATA = [
+    // --- 0km START area ---
+    {
+      km: 0,
+      category: '🏟️ スタート地点',
+      question: 'さいたまマラソンのスタート・フィニッシュ地点はどこ？',
+      options: ['さいたまスーパーアリーナ周辺', '埼玉スタジアム2002', '大宮公園', '浦和駒場スタジアム'],
+      answer: 0,
+      explanation: 'さいたまスーパーアリーナ周辺が発着点です！国内最大級の多目的アリーナからスタート！'
+    },
+    {
+      km: 0,
+      category: '📋 大会情報',
+      question: 'さいたまマラソン2026のスタート時間は？',
+      options: ['8:00', '8:30', '9:00', '9:30'],
+      answer: 2,
+      explanation: '9:00スタートです。早起きして準備しましょう！'
+    },
+    {
+      km: 0,
+      category: '📋 大会情報',
+      question: 'マラソンの部の制限時間は？',
+      options: ['5時間', '5時間30分', '6時間', '7時間'],
+      answer: 2,
+      explanation: '制限時間は号砲から6時間です。15:00までにフィニッシュしましょう！'
+    },
+    // --- 1.3km ---
+    {
+      km: 1.3,
+      category: '🎵 沿道応援',
+      question: '1.3km地点で聞ける応援演奏は？',
+      options: ['吹奏楽', '和太鼓', 'チアダンス', 'エイサー'],
+      answer: 1,
+      explanation: 'おつま太鼓 & 浦和太鼓の和太鼓演奏でスタート直後から盛り上がります！'
+    },
+    // --- 5km ---
+    {
+      km: 5,
+      category: '🗺️ コース特徴',
+      question: 'コースはさいたま市内をどの方向に巡る？',
+      options: ['南北に往復', '東西に巡る', '北に一直線', '時計回りに一周'],
+      answer: 1,
+      explanation: 'さいたまスーパーアリーナから東西にさいたま市内を巡るコースです！'
+    },
+    // --- 7.2km ---
+    {
+      km: 7.2,
+      category: '🎵 沿道応援',
+      question: '7.2km地点で応援してくれるのは？',
+      options: ['浦和レッズサポーター', 'さいたま市立浦和高校吹奏楽部', '大宮アルディージャ応援団', 'プロ和太鼓チーム'],
+      answer: 1,
+      explanation: 'さいたま市立浦和高等学校の吹奏楽部が華やかな演奏で応援してくれます！'
+    },
+    // --- 10km ---
+    {
+      km: 10,
+      category: '🏟️ ランドマーク',
+      question: '10km付近にあるスタジアムは？',
+      options: ['さいたまスーパーアリーナ', '埼玉スタジアム2002', '浦和駒場スタジアム', 'メットライフドーム'],
+      answer: 2,
+      explanation: '浦和駒場スタジアムの近くを通ります。8kmの部はここがフィニッシュ地点です！',
+      landmark: { emoji: '🏟️', name: '浦和駒場スタジアム', detail: '8kmの部のフィニッシュ地点' }
+    },
+    // --- 12.4km ---
+    {
+      km: 12.4,
+      category: '🎵 沿道応援',
+      question: '12.4km地点で見られる沖縄の伝統舞踊は？',
+      options: ['阿波踊り', 'よさこい', 'エイサー', 'ソーラン節'],
+      answer: 2,
+      explanation: '浦和大学エイサークルが沖縄の伝統舞踊「エイサー」で応援！太鼓の音が響きます！'
+    },
+    // --- 15km エイド ---
+    {
+      km: 15,
+      category: '🍽️ エイド給食',
+      question: '15km地点のエイドで食べられるパンは？',
+      options: ['メロンパン', 'こしあんドーナツ', 'カレーパン', 'クリームパン'],
+      answer: 1,
+      explanation: '伊藤製パンの「おすそわけこしあんドーナツ」が食べられます！',
+      aid: [
+        { emoji: '🍩', text: 'おすそわけこしあんドーナツ（伊藤製パン）' },
+        { emoji: '🍡', text: 'エネモチ（パラチノース配合くるみ餅）' },
+        { emoji: '💧', text: '水・スポーツドリンク' }
+      ]
+    },
+    {
+      km: 15,
+      category: '🍽️ エイド給食',
+      question: '15km地点で食べられる「エネモチ」の正体は？',
+      options: ['大福餅', 'パラチノース配合くるみ餅', 'わらび餅', 'おはぎ'],
+      answer: 1,
+      explanation: 'ランナーに人気のエネモチは、パラチノース配合のくるみ餅！持続的なエネルギー補給に最適です！'
+    },
+    // --- 17.4km 第1折り返し ---
+    {
+      km: 17.4,
+      category: '↩️ 折り返し',
+      question: '第1折り返し地点（17.4km）にあるスタジアムは？',
+      options: ['浦和駒場スタジアム', '熊谷スポーツ文化公園', '埼玉スタジアム2002', 'NACK5スタジアム大宮'],
+      answer: 2,
+      explanation: '第1折り返しは埼玉スタジアム2002（東口）！日本最大のサッカー専用スタジアムです！',
+      landmark: { emoji: '🏟️', name: '埼玉スタジアム2002', detail: '第1折り返し地点（東口）' }
+    },
+    // --- 20km ---
+    {
+      km: 20,
+      category: '🗺️ コース特徴',
+      question: 'この大会のコースには折り返しが何回ある？',
+      options: ['1回', '2回', '3回', '4回'],
+      answer: 2,
+      explanation: '折り返しは3回！①埼玉スタジアム2002(17.4km) ②東浦和方面(23km付近) ③浦和駅付近(30km付近)'
+    },
+    // --- 22.5km エイド ---
+    {
+      km: 22.5,
+      category: '🍽️ エイド給食',
+      question: '22.5km地点のエイドで食べられる埼玉銘菓は？',
+      options: ['草加せんべい', '十万石まんじゅう', '五家宝', '川越芋菓子'],
+      answer: 1,
+      explanation: '「うまい、うますぎる」でおなじみの十万石まんじゅう！さつま芋の薄皮とこし餡の上品な味わいです！',
+      aid: [
+        { emoji: '🥟', text: '十万石まんじゅう（十万石ふくさや）' },
+        { emoji: '🍛', text: 'よこすか海軍カレーパン（伊藤製パン）' },
+        { emoji: '🍌', text: 'バナナ（浦和・大宮中央卸売市場）' },
+        { emoji: '💧', text: '水・スポーツドリンク' }
+      ]
+    },
+    {
+      km: 22.5,
+      category: '🍽️ エイド給食',
+      question: '22.5km地点で食べられるカレーパンの名前は？',
+      options: ['金沢カレーパン', 'よこすか海軍カレーパン', '大宮カレーパン', 'インドカレーパン'],
+      answer: 1,
+      explanation: '伊藤製パンの「よこすか海軍カレーパン」！走りながらガッツリ補給できます！'
+    },
+    // --- 24km ---
+    {
+      km: 24,
+      category: '🎵 沿道応援',
+      question: '24km地点の応援に使われる楽器は？',
+      options: ['トランペット', 'バイオリン', '和太鼓', 'ギター'],
+      answer: 2,
+      explanation: '和太鼓塾赤沼太鼓が力強い演奏で後半戦のランナーを応援します！'
+    },
+    // --- 26.5km エンジョイエイド ---
+    {
+      km: 26.5,
+      category: '🍰 エンジョイエイド',
+      question: 'エンジョイエイド（26.5km）で出る特別なスイーツは？',
+      options: ['ショートケーキとプリン', 'キャラメルシュークリームとカスタードプリン', 'チョコレートとクッキー', 'どら焼きと大福'],
+      answer: 1,
+      explanation: 'エンジョイエイドでは豪華スイーツ！キャラメルシュークリーム（パティスリーアプラノス）とカスタードプリン（アプリエ花 林檎堂）が楽しめます！',
+      aid: [
+        { emoji: '🧁', text: 'キャラメルシュークリーム（パティスリーアプラノス）' },
+        { emoji: '🍮', text: 'カスタードプリン（アプリエ花 林檎堂）' }
+      ]
+    },
+    // --- 27.5km ---
+    {
+      km: 27.5,
+      category: '🍽️ エイド給食',
+      question: '27.5km地点で食べられる秩父の名物は？',
+      options: ['秩父そば', 'ちちぶ餅', '味噌ポテト', 'わらじカツ'],
+      answer: 1,
+      explanation: '秩父の自然が育んだメープルシロップを贅沢に使った「ちちぶ餅」！口に入れた瞬間とろける甘みが広がります！',
+      aid: [
+        { emoji: '🍡', text: 'ちちぶ餅（秩父 中村屋）' },
+        { emoji: '💧', text: '水・スポーツドリンク' }
+      ]
+    },
+    // --- 30km ---
+    {
+      km: 30,
+      category: '🗺️ コース特徴',
+      question: '30km付近はマラソンで何と呼ばれるポイント？',
+      options: ['スタートダッシュ', 'ランナーズハイ', '30kmの壁', 'ビクトリーロード'],
+      answer: 2,
+      explanation: '「30kmの壁」と呼ばれる最も辛いポイント！ここを乗り越えればゴールが見えてきます！'
+    },
+    // --- 32.5km ---
+    {
+      km: 32.5,
+      category: '🍽️ エイド給食',
+      question: '32.5km地点で食べられるミニトマトの品種は？',
+      options: ['アイコ', 'トマトベリー', 'プチぷよ', 'ミニキャロル'],
+      answer: 1,
+      explanation: 'トキタ種苗の「トマトベリー」＆「トマトベリーオレンジ」！甘くて食べ応えのあるミニトマトです！',
+      aid: [
+        { emoji: '🍅', text: 'トマトベリー＆トマトベリーオレンジ（トキタ種苗）' },
+        { emoji: '🌭', text: 'たまごドッグ（伊藤製パン）' },
+        { emoji: '🍌', text: 'バナナ・くだもの' }
+      ]
+    },
+    // --- 35km ---
+    {
+      km: 35,
+      category: '🏟️ ランドマーク',
+      question: '35km付近にある施設は？',
+      options: ['さいたまスーパーアリーナ', 'ポリテクセンター埼玉', '大宮公園', '鉄道博物館'],
+      answer: 1,
+      explanation: '35km地点はポリテクセンター埼玉の近く。ここまで来ればあと7km！'
+    },
+    // --- 35.8km ---
+    {
+      km: 35.8,
+      category: '🎵 沿道応援',
+      question: '35.8km地点で応援してくれる名門校は？',
+      options: ['慶應義塾高校', '埼玉県立浦和高校', '早稲田大学', '大宮高校'],
+      answer: 1,
+      explanation: '名門・埼玉県立浦和高校の応援団が全力で応援！終盤の疲れを吹き飛ばしてくれます！'
+    },
+    // --- 37.5km 最大エイド ---
+    {
+      km: 37.5,
+      category: '🍽️ エイド給食',
+      question: '37.5km地点は最大のエイドステーション！ここで食べられないものは？',
+      options: ['うなぎの蒲焼', 'いちご飴', 'ラーメン', '乃し梅'],
+      answer: 2,
+      explanation: '37.5kmは豪華な給食ポイント！うなぎ蒲焼、いちご飴、乃し梅など盛りだくさんですが、ラーメンは出ません！',
+      aid: [
+        { emoji: '🍩', text: 'こしあんドーナツ＆コーンマヨパン（伊藤製パン）' },
+        { emoji: '🐟', text: 'うなぎの蒲焼（かのうや）' },
+        { emoji: '🍓', text: 'いちりんぼう＆いちご飴（しぼらくファーム）' },
+        { emoji: '🍡', text: 'エネモチ（天覧堂宝石）' },
+        { emoji: '🍵', text: '乃し梅（佐藤屋）- 山形の完熟梅の純粋' },
+        { emoji: '🥟', text: '自家製しまんじゅう（大宮菓子舗）' },
+        { emoji: '🍱', text: '食良品（酒井の食良品）' }
+      ]
+    },
+    {
+      km: 37.5,
+      category: '🍽️ エイド給食',
+      question: '37.5km地点の「乃し梅」はどこの名産品？',
+      options: ['埼玉県秩父', '山形県', '和歌山県', '群馬県'],
+      answer: 1,
+      explanation: '佐藤屋の「乃し梅」は山形の完熟梅を使った甘酸っぱい一品。疲労回復にぴったり！'
+    },
+    // --- 38km ---
+    {
+      km: 38,
+      category: '🎵 沿道応援',
+      question: '38km地点付近で見られるパフォーマンスは？',
+      options: ['フラダンス', '盆踊り', 'チアダンス', 'フラメンコ'],
+      answer: 2,
+      explanation: 'チアダンスクラブ SAKURA ANGELSが華やかなダンスで最後の力を引き出してくれます！'
+    },
+    // --- 40km ---
+    {
+      km: 40,
+      category: '🗺️ コース特徴',
+      question: 'ゴールまであと約何km？気合を入れ直そう！',
+      options: ['約1km', '約2.195km', '約3km', '約5km'],
+      answer: 1,
+      explanation: 'あと2.195km！最後の力を振り絞ってさいたまスーパーアリーナを目指しましょう！'
+    },
+    // --- 42km ---
+    {
+      km: 42,
+      category: '🏁 フィニッシュ',
+      question: 'さいたまマラソンの大会コンセプトは？',
+      options: [
+        '日本一速いマラソン',
+        '誰もがスポーツを楽しみ、誰もが参加できる東日本屈指のマラソンの祭典',
+        '世界に誇るフラットコース',
+        'ランナーファーストの大会'
+      ],
+      answer: 1,
+      explanation: '「誰もがスポーツを楽しみ、誰もが参加できる東日本屈指のマラソンの祭典」がコンセプト！フルマラソン、8km、親子ラン、車いすなど多彩な部門があります！'
+    },
+    {
+      km: 42.195,
+      category: '🏁 フィニッシュ',
+      question: 'さいたまマラソン2026のエントリー者数は？',
+      options: ['約5,000名', '約10,000名', '15,000名超', '約20,000名'],
+      answer: 2,
+      explanation: '15,000名を超える大規模大会！たくさんのランナーと一緒にゴールを目指しましょう！'
+    }
+  ];
+
+  // =====================================================
+  // GAME STATE
+  // =====================================================
+  const TOTAL_DISTANCE = 42.195;
+  const STAMINA_MAX = 100;
+  const STAMINA_GAIN = 8;
+  const STAMINA_LOSS = 15;
+
+  let currentQuestion = 0;
+  let score = 0;
+  let stamina = STAMINA_MAX;
+  let correctCount = 0;
+  let totalAnswered = 0;
+  let shuffledQuiz = [];
+
+  // --- DOM refs ---
+  const courseBar = document.getElementById('course-bar');
+  const staminaContainer = document.getElementById('stamina-container');
+  const courseFill = document.getElementById('course-fill');
+  const runnerIcon = document.getElementById('runner-icon');
+  const currentKmEl = document.getElementById('current-km');
+  const questionCountEl = document.getElementById('question-count');
+  const staminaBar = document.getElementById('stamina-bar');
+  const staminaText = document.getElementById('stamina-text');
+  const scoreBadge = document.getElementById('score-badge');
+
+  const startScreen = document.getElementById('start-screen');
+  const quizScreen = document.getElementById('quiz-screen');
+  const finishScreen = document.getElementById('finish-screen');
+  const gameoverScreen = document.getElementById('gameover-screen');
+
+  const quizKm = document.getElementById('quiz-km');
+  const quizCategory = document.getElementById('quiz-category');
+  const quizQuestion = document.getElementById('quiz-question');
+  const quizOptions = document.getElementById('quiz-options');
+  const quizResult = document.getElementById('quiz-result');
+  const resultEmoji = document.getElementById('result-emoji');
+  const resultText = document.getElementById('result-text');
+  const quizNext = document.getElementById('quiz-next');
+  const aidCard = document.getElementById('aid-card');
+  const aidHeader = document.getElementById('aid-header');
+  const aidBody = document.getElementById('aid-body');
+
+  // --- Screen management ---
+  function showScreen(screen) {
+    [startScreen, quizScreen, finishScreen, gameoverScreen].forEach(function(s) {
+      s.classList.remove('active');
+    });
+    screen.classList.add('active');
+  }
+
+  // --- Shuffle array ---
+  function shuffleOptions(q) {
+    // Create indexed options
+    const indexed = q.options.map(function(opt, i) {
+      return { text: opt, originalIndex: i };
+    });
+    // Shuffle
+    for (let i = indexed.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indexed[i], indexed[j]] = [indexed[j], indexed[i]];
+    }
+    return {
+      options: indexed.map(function(o) { return o.text; }),
+      answerIndex: indexed.findIndex(function(o) { return o.originalIndex === q.answer; })
+    };
+  }
+
+  // --- Update HUD ---
+  function updateCourseProgress(km) {
+    const pct = Math.min((km / TOTAL_DISTANCE) * 100, 100);
+    courseFill.style.width = pct + '%';
+    runnerIcon.style.left = 'calc(' + pct + '% + 6px)';
+    currentKmEl.textContent = km.toFixed(1) + 'km';
+    questionCountEl.textContent = 'Q.' + (currentQuestion + 1) + '/' + shuffledQuiz.length;
+  }
+
+  function updateStamina() {
+    const pct = Math.max(0, Math.min(100, stamina));
+    staminaBar.style.width = pct + '%';
+    staminaText.textContent = Math.round(pct) + '%';
+    scoreBadge.textContent = '⭐ ' + score + '点';
+
+    // Color change based on stamina level
+    if (pct <= 20) {
+      staminaBar.style.background = '#f44336';
+    } else if (pct <= 50) {
+      staminaBar.style.background = 'linear-gradient(90deg, #f44336, #ff9800)';
+    } else {
+      staminaBar.style.background = 'linear-gradient(90deg, #ff9800, #4caf50)';
+    }
+  }
+
+  // --- Show quiz question ---
+  function showQuestion() {
+    if (currentQuestion >= shuffledQuiz.length) {
+      showFinish();
+      return;
+    }
+
+    if (stamina <= 0) {
+      showGameOver();
+      return;
+    }
+
+    const q = shuffledQuiz[currentQuestion];
+    const shuffled = shuffleOptions(q);
+
+    updateCourseProgress(q.km);
+
+    quizKm.textContent = q.km + 'km';
+    quizCategory.textContent = q.category;
+    quizQuestion.textContent = q.question;
+
+    // Clear previous
+    quizOptions.innerHTML = '';
+    quizResult.classList.remove('show', 'correct', 'wrong');
+    quizNext.classList.remove('show');
+    aidCard.classList.remove('show');
+
+    // Remove any existing landmark cards
+    var oldLandmarks = quizScreen.querySelectorAll('.landmark-card');
+    oldLandmarks.forEach(function(el) { el.remove(); });
+
+    // Create option buttons
+    shuffled.options.forEach(function(opt, i) {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-option';
+      btn.textContent = opt;
+      btn.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        handleAnswer(i, shuffled.answerIndex, q);
+      });
+      quizOptions.appendChild(btn);
+    });
+
+    showScreen(quizScreen);
+  }
+
+  // --- Handle answer ---
+  function handleAnswer(selected, correctIdx, q) {
+    const buttons = quizOptions.querySelectorAll('.quiz-option');
+
+    // Disable all buttons
+    buttons.forEach(function(btn) {
+      btn.classList.add('disabled');
+    });
+
+    totalAnswered++;
+    const isCorrect = selected === correctIdx;
+
+    if (isCorrect) {
+      buttons[selected].classList.add('correct');
+      stamina = Math.min(STAMINA_MAX, stamina + STAMINA_GAIN);
+      score += 10;
+      correctCount++;
+
+      resultEmoji.textContent = '🎉';
+      resultText.textContent = '正解！ ' + q.explanation;
+      quizResult.className = 'quiz-result show correct';
+    } else {
+      buttons[selected].classList.add('wrong');
+      buttons[correctIdx].classList.add('reveal');
+      stamina -= STAMINA_LOSS;
+      score = Math.max(0, score - 3);
+
+      resultEmoji.textContent = '😢';
+      resultText.textContent = '残念… ' + q.explanation;
+      quizResult.className = 'quiz-result show wrong';
+    }
+
+    updateStamina();
+
+    // Flash stamina bar
+    staminaContainer.classList.remove('stamina-flash');
+    void staminaContainer.offsetWidth;
+    staminaContainer.classList.add('stamina-flash');
+
+    // Show aid info if available
+    if (q.aid) {
+      aidHeader.textContent = '🍽️ ' + q.km + 'km エイドステーション情報';
+      aidBody.innerHTML = '';
+      q.aid.forEach(function(item) {
+        const div = document.createElement('div');
+        div.className = 'aid-item';
+        div.innerHTML = '<span class="emoji">' + item.emoji + '</span><span>' + item.text + '</span>';
+        aidBody.appendChild(div);
+      });
+      aidCard.classList.add('show');
+    }
+
+    // Show landmark if available
+    if (q.landmark) {
+      const card = document.createElement('div');
+      card.className = 'landmark-card';
+      card.innerHTML = '<span class="emoji">' + q.landmark.emoji + '</span>' +
+        '<div class="info"><strong>' + q.landmark.name + '</strong><br>' + q.landmark.detail + '</div>';
+      quizScreen.appendChild(card);
+    }
+
+    // Show next button
+    quizNext.classList.add('show');
+
+    // Auto scroll to result
+    quizResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // --- Next question ---
+  function nextQuestion() {
+    currentQuestion++;
+
+    if (stamina <= 0) {
+      showGameOver();
+      return;
+    }
+
+    showQuestion();
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // --- Finish screen ---
+  function showFinish() {
+    courseBar.style.display = 'none';
+    staminaContainer.style.display = 'none';
+    document.body.classList.remove('game-active');
+
+    const accuracy = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
+
+    // Medal based on accuracy
+    let medal;
+    if (accuracy >= 90) medal = '🥇';
+    else if (accuracy >= 70) medal = '🥈';
+    else if (accuracy >= 50) medal = '🥉';
+    else medal = '🏅';
+
+    document.getElementById('finish-medal').textContent = medal;
+    document.getElementById('finish-accuracy').textContent = accuracy + '%';
+    document.getElementById('finish-score').textContent = score;
+    document.getElementById('finish-stamina').textContent = Math.round(stamina) + '%';
+    document.getElementById('finish-correct').textContent = correctCount + '/' + totalAnswered;
+
+    let msg;
+    if (accuracy >= 90) {
+      msg = '🎊 素晴らしい！コースマスターです！本番も自信を持って走れますね！エイドの場所も完璧に把握しています！';
+    } else if (accuracy >= 70) {
+      msg = '👏 よく頑張りました！コースの大部分を理解しています。もう一度挑戦してエイド情報を完璧にしましょう！';
+    } else if (accuracy >= 50) {
+      msg = '💪 まずまずの結果です！もう一度走って、エイドや折り返し地点をしっかり覚えましょう！';
+    } else {
+      msg = '📚 コースの予習が必要です！もう一度チャレンジして、エイドの食べ物や折り返し地点を覚えましょう！';
+    }
+    document.getElementById('finish-message').textContent = msg;
+
+    showScreen(finishScreen);
+  }
+
+  // --- Game over screen ---
+  function showGameOver() {
+    courseBar.style.display = 'none';
+    staminaContainer.style.display = 'none';
+    document.body.classList.remove('game-active');
+
+    const q = shuffledQuiz[Math.min(currentQuestion, shuffledQuiz.length - 1)];
+    const km = q ? q.km : 0;
+    document.getElementById('gameover-km').textContent = km.toFixed(1) + 'km地点でリタイア';
+    document.getElementById('gameover-dist').textContent = km.toFixed(1) + 'km';
+    document.getElementById('gameover-correct').textContent = correctCount + '/' + totalAnswered;
+
+    showScreen(gameoverScreen);
+  }
+
+  // --- Start game ---
+  function startGame() {
+    currentQuestion = 0;
+    score = 0;
+    stamina = STAMINA_MAX;
+    correctCount = 0;
+    totalAnswered = 0;
+
+    // Shuffle quiz order slightly (keep roughly km-ordered but add variety)
+    shuffledQuiz = QUIZ_DATA.slice();
+
+    courseBar.style.display = 'block';
+    staminaContainer.style.display = 'flex';
+    document.body.classList.add('game-active');
+
+    updateStamina();
+    showQuestion();
+  }
+
+  // --- Event listeners ---
+  document.getElementById('start-btn').addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    startGame();
+  });
+
+  document.getElementById('next-btn').addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    nextQuestion();
+  });
+
+  document.getElementById('retry-btn').addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    startGame();
+  });
+
+  document.getElementById('gameover-retry-btn').addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    startGame();
+  });
+
+  // Prevent scrolling issues
+  document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+})();
+</script>
+</body>
+</html>
