@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="description" content="さいたまマラソン2026のコースをクイズで予習！エイド給食、沿道応援、折り返し地点を覚えよう">
+<meta name="theme-color" content="#c2185b">
+<meta property="og:title" content="さいたまマラソン コース予習クイズラン">
+<meta property="og:description" content="42.195kmのコースをクイズで走ろう！エイドの食べ物や応援ポイントを事前チェック">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://awano27.github.io/my-game/marathon.html">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏃</text></svg>">
 <title>さいたまマラソン コース予習クイズラン</title>
 <style>
   * {
@@ -94,7 +102,7 @@
   }
 
   #stamina-label {
-    color: #4caf50;
+    color: #69f0ae;
     font-size: 11px;
     font-weight: bold;
     white-space: nowrap;
@@ -265,7 +273,7 @@
 
   .quiz-header .category {
     font-size: 14px;
-    opacity: 0.9;
+    color: #fff;
   }
 
   .quiz-question {
@@ -477,7 +485,7 @@
 
   .finish-stat .label {
     font-size: 12px;
-    color: #888;
+    color: #666;
     margin-bottom: 4px;
   }
 
@@ -928,8 +936,8 @@
   // =====================================================
   const TOTAL_DISTANCE = 42.195;
   const STAMINA_MAX = 100;
-  const STAMINA_GAIN = 8;
-  const STAMINA_LOSS = 15;
+  const STAMINA_GAIN = 10;
+  const STAMINA_LOSS = 12;
 
   let currentQuestion = 0;
   let score = 0;
@@ -937,6 +945,7 @@
   let correctCount = 0;
   let totalAnswered = 0;
   let shuffledQuiz = [];
+  let isAnswering = false;
 
   // --- DOM refs ---
   const courseBar = document.getElementById('course-bar');
@@ -995,7 +1004,8 @@
   function updateCourseProgress(km) {
     const pct = Math.min((km / TOTAL_DISTANCE) * 100, 100);
     courseFill.style.width = pct + '%';
-    runnerIcon.style.left = 'calc(' + pct + '% + 6px)';
+    // Keep runner within track bounds (16px padding each side, icon ~20px wide)
+    runnerIcon.style.left = 'calc(16px + (100% - 52px) * ' + (pct / 100) + ')';
     currentKmEl.textContent = km.toFixed(1) + 'km';
     questionCountEl.textContent = 'Q.' + (currentQuestion + 1) + '/' + shuffledQuiz.length;
   }
@@ -1048,11 +1058,12 @@
     oldLandmarks.forEach(function(el) { el.remove(); });
 
     // Create option buttons
+    isAnswering = false;
     shuffled.options.forEach(function(opt, i) {
       const btn = document.createElement('button');
       btn.className = 'quiz-option';
       btn.textContent = opt;
-      btn.addEventListener('pointerdown', function(e) {
+      btn.addEventListener('click', function(e) {
         e.preventDefault();
         handleAnswer(i, shuffled.answerIndex, q);
       });
@@ -1064,6 +1075,10 @@
 
   // --- Handle answer ---
   function handleAnswer(selected, correctIdx, q) {
+    // Guard against double-tap
+    if (isAnswering) return;
+    isAnswering = true;
+
     const buttons = quizOptions.querySelectorAll('.quiz-option');
 
     // Disable all buttons
@@ -1086,7 +1101,7 @@
     } else {
       buttons[selected].classList.add('wrong');
       buttons[correctIdx].classList.add('reveal');
-      stamina -= STAMINA_LOSS;
+      stamina = Math.max(0, stamina - STAMINA_LOSS);
       score = Math.max(0, score - 3);
 
       resultEmoji.textContent = '😢';
@@ -1108,7 +1123,13 @@
       q.aid.forEach(function(item) {
         const div = document.createElement('div');
         div.className = 'aid-item';
-        div.innerHTML = '<span class="emoji">' + item.emoji + '</span><span>' + item.text + '</span>';
+        const emojiSpan = document.createElement('span');
+        emojiSpan.className = 'emoji';
+        emojiSpan.textContent = item.emoji;
+        const textSpan = document.createElement('span');
+        textSpan.textContent = item.text;
+        div.appendChild(emojiSpan);
+        div.appendChild(textSpan);
         aidBody.appendChild(div);
       });
       aidCard.classList.add('show');
@@ -1118,8 +1139,18 @@
     if (q.landmark) {
       const card = document.createElement('div');
       card.className = 'landmark-card';
-      card.innerHTML = '<span class="emoji">' + q.landmark.emoji + '</span>' +
-        '<div class="info"><strong>' + q.landmark.name + '</strong><br>' + q.landmark.detail + '</div>';
+      const lmEmoji = document.createElement('span');
+      lmEmoji.className = 'emoji';
+      lmEmoji.textContent = q.landmark.emoji;
+      const lmInfo = document.createElement('div');
+      lmInfo.className = 'info';
+      const lmName = document.createElement('strong');
+      lmName.textContent = q.landmark.name;
+      lmInfo.appendChild(lmName);
+      lmInfo.appendChild(document.createElement('br'));
+      lmInfo.appendChild(document.createTextNode(q.landmark.detail));
+      card.appendChild(lmEmoji);
+      card.appendChild(lmInfo);
       quizScreen.appendChild(card);
     }
 
@@ -1163,7 +1194,7 @@
     document.getElementById('finish-medal').textContent = medal;
     document.getElementById('finish-accuracy').textContent = accuracy + '%';
     document.getElementById('finish-score').textContent = score;
-    document.getElementById('finish-stamina').textContent = Math.round(stamina) + '%';
+    document.getElementById('finish-stamina').textContent = Math.max(0, Math.round(stamina)) + '%';
     document.getElementById('finish-correct').textContent = correctCount + '/' + totalAnswered;
 
     let msg;
@@ -1204,8 +1235,21 @@
     correctCount = 0;
     totalAnswered = 0;
 
-    // Shuffle quiz order slightly (keep roughly km-ordered but add variety)
+    // Shuffle questions within same km groups for variety
     shuffledQuiz = QUIZ_DATA.slice();
+    var i = 0;
+    while (i < shuffledQuiz.length) {
+      var j = i;
+      while (j < shuffledQuiz.length && shuffledQuiz[j].km === shuffledQuiz[i].km) j++;
+      // Fisher-Yates shuffle within this km group
+      for (var k = j - 1; k > i; k--) {
+        var r = i + Math.floor(Math.random() * (k - i + 1));
+        var tmp = shuffledQuiz[k];
+        shuffledQuiz[k] = shuffledQuiz[r];
+        shuffledQuiz[r] = tmp;
+      }
+      i = j;
+    }
 
     courseBar.style.display = 'block';
     staminaContainer.style.display = 'flex';
@@ -1216,28 +1260,25 @@
   }
 
   // --- Event listeners ---
-  document.getElementById('start-btn').addEventListener('pointerdown', function(e) {
+  document.getElementById('start-btn').addEventListener('click', function(e) {
     e.preventDefault();
     startGame();
   });
 
-  document.getElementById('next-btn').addEventListener('pointerdown', function(e) {
+  document.getElementById('next-btn').addEventListener('click', function(e) {
     e.preventDefault();
     nextQuestion();
   });
 
-  document.getElementById('retry-btn').addEventListener('pointerdown', function(e) {
+  document.getElementById('retry-btn').addEventListener('click', function(e) {
     e.preventDefault();
     startGame();
   });
 
-  document.getElementById('gameover-retry-btn').addEventListener('pointerdown', function(e) {
+  document.getElementById('gameover-retry-btn').addEventListener('click', function(e) {
     e.preventDefault();
     startGame();
   });
-
-  // Prevent scrolling issues
-  document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
 })();
 </script>
